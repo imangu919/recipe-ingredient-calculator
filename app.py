@@ -9,9 +9,7 @@ st.markdown("""
 [data-testid="stAppViewContainer"] h3,
 [data-testid="stAppViewContainer"] p,
 [data-testid="stAppViewContainer"] li,
-[data-testid="stAppViewContainer"] span {
-  color: #000 !important;
-}
+
 
 /* Mobile-specific font-size adjustments */
 @media (max-width: 600px) {
