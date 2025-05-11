@@ -1,5 +1,5 @@
 import streamlit as st
-st.set_page_config(page_title="🧑‍🍳Chef Tai", layout="centered")
+st.set_page_config(page_title="🧑‍🍳Chef Tai🛠️", layout="centered")
 
 st.markdown("""
 <style>
@@ -87,17 +87,18 @@ def load_data():
     components = df["Components"]
     ingredient_dict = df["IngredientDict"]
     steps = df["Steps"]
+    tools = df.get("Tools", pd.DataFrame(columns=["RecipeID", "ToolName", "ToolName_zh", "Optional"]))  # Load Tools with Optional column
     merged = (
         ingredients
         .merge(components.drop(columns=["RecipeID"]), on="ComponentID", how="left")
         .merge(recipes, on="RecipeID", how="left")
         .merge(ingredient_dict, on="Ingredient", how="left")
     )
-    return merged, recipes, steps
+    return merged, recipes, steps, tools
 
-df, recipes_df, steps_df = load_data()
+df, recipes_df, steps_df, tools_df = load_data()
 lang = st.radio("選擇語言 / Choose Language", ["中文", "English"])
-st.title("🧑‍🍳 食譜材料計算工具" if lang == "中文" else "🧑‍🍳 Recipe Ingredient Calculator")
+st.title("🧑‍🍳🛠️ 食譜組裝器" if lang == "中文" else "🧑‍🍳🛠️ Taste Fabrication")
 
 # Session state for filter management
 if 'selected_category' not in st.session_state:
@@ -106,8 +107,8 @@ if 'selected_subcategory' not in st.session_state:
     st.session_state.selected_subcategory = 'All'
 
 # Category & Style Filters
-category_display = "類別" if lang == "中文" else "Category"
-style_display = "風格" if lang == "中文" else "Style"
+category_display = "類別 (選用)" if lang == "中文" else "Category(Optional)"
+style_display = "風格(選用)" if lang == "中文" else "Style(Optional)"
 category_options = ['All'] + sorted(recipes_df['Category_zh' if lang == "中文" else 'Category'].dropna().unique())
 style_options = ['All'] + sorted(recipes_df['SubCategory_zh' if lang == "中文" else 'SubCategory'].dropna().unique())
 
@@ -198,8 +199,25 @@ if selected:
             st.markdown(f"🍳 Method: {info['Method']}")
             st.markdown(f"⏱️ Estimated Time: {total_recipe_time} min")
 
+
+        # Display Tool Collection Bag
+        st.subheader("🧰 工具收集袋" if lang == "中文" else "🧰 Tool Collection Bag")
+        recipe_tools = tools_df[tools_df["RecipeID"] == recipe_id]
+        if recipe_tools.empty:
+            st.info("工具資料待補" if lang == "中文" else "Tool data to be added")
+        else:
+            if lang == "中文":
+                tool_display = recipe_tools[["ToolName_zh", "Optional"]]
+                tool_display.columns = ["工具", "選用"]
+                tool_display["選用"] = tool_display["選用"].apply(lambda x: "✓" if x in ["✓", "V"] else "")
+            else:
+                tool_display = recipe_tools[["ToolName", "Optional"]]
+                tool_display.columns = ["Tool", "Optional"]
+                tool_display["Optional"] = tool_display["Optional"].apply(lambda x: "(optional)" if x in ["✓", "V"] else "")
+            st.table(tool_display.reset_index(drop=True))
+
         # Components title and table display
-        st.subheader("🫜 材料" if lang == "中文" else "🫜 Ingredients")
+        st.subheader("🫜 BoM物料表" if lang == "中文" else "🫜 BoM (Bill of Materials)")
         for comp in rec_df["ComponentName"].unique():
             comp_df = rec_df[rec_df["ComponentName"] == comp]
             comp_display = comp_df["ComponentName_zh"].iloc[0] if lang == "中文" else comp
@@ -226,7 +244,7 @@ if selected:
             st.table(display.reset_index(drop=True))
 
         # Display Recipe Sequence with merged Parts
-        st.subheader("📋 做法順序" if lang == "中文" else "📋 Sequence")
+        st.subheader("📋 生產流程" if lang == "中文" else "📋 Sequence")
         step_data = steps_df[steps_df["RecipeID"] == recipe_id]
         
         # Check if step_data is empty or missing required columns
@@ -264,8 +282,8 @@ if selected:
                 sequence_df["並行" if lang == "中文" else "Parallel"] = sequence_df["並行" if lang == "中文" else "Parallel"].apply(lambda x: "✓" if x else "")
             st.table(sequence_df.reset_index(drop=True))
 
-    # Shopping list with total estimated time
-    st.subheader("📝 購物清單" if lang == "中文" else "📝 Shopping List")
+    # Shopping list with total estimated time and aggregated tools
+    st.subheader("📝 採購清單" if lang == "中文" else "📝 Porcurement")
     all_df = filtered_df[filtered_df["RecipeDisplay"].isin(selected)].copy()
     all_df["Multiplier"] = all_df["RecipeDisplay"].map(multipliers)
     all_df["TotalAmount"] = all_df["Amount"] * all_df["Multiplier"]
@@ -277,6 +295,7 @@ if selected:
         if 'Parallel' in recipe_steps.columns and 'CycleTime' in recipe_steps.columns:
             total_time += recipe_steps[recipe_steps["Parallel"] == False]["CycleTime"].sum()
 
+    # Aggregate ingredients
     if lang == "中文":
         st.markdown(f"### ⏱️ 預估總時間：{total_time} 分鐘")
         all_df["食材"] = all_df["Ingredient_zh"]
@@ -293,6 +312,19 @@ if selected:
         summary["Optional"] = summary["Optional"].apply(lambda x: "✓" if x else "")
         summary = summary[["Ingredient", "Quantity", "Unit", "Optional"]]
         lines = [f"{row['Ingredient']}: {row['Quantity']}{row['Unit']}" + (" (optional)" if row['Optional'] else "") for _, row in summary.iterrows()]
+
+    # Aggregate tools
+    all_tools = tools_df[tools_df["RecipeID"].isin(selected_ids)].copy()
+    if not all_tools.empty:
+        if lang == "中文":
+            tool_summary = all_tools.groupby(["ToolName_zh", "Optional"]).size().reset_index(name="Count")
+            tool_summary["選用"] = tool_summary["Optional"].apply(lambda x: "✓" if x in ["✓", "V"] else "")
+            tool_lines = [f"{row['ToolName_zh']}" + (" (選用)" if row['選用'] else "") for _, row in tool_summary.iterrows()]
+        else:
+            tool_summary = all_tools.groupby(["ToolName", "Optional"]).size().reset_index(name="Count")
+            tool_summary["Optional"] = tool_summary["Optional"].apply(lambda x: "(optional)" if x in ["✓", "V"] else "")
+            tool_lines = [f"{row['ToolName']}" + (" (optional)" if row['Optional'] else "") for _, row in tool_summary.iterrows()]
+        lines.extend(tool_lines)
 
     st.code("\n".join(lines))
 else:
