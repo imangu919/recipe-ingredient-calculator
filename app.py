@@ -5,6 +5,17 @@ st.markdown("""<style>
 [data-testid="stAppViewContainer"] {
     background-color: #d8d4c0;
 }
+
+@media (max-width: 600px) {
+  .main-header {
+    font-size: 1.5rem !important;
+  }
+  .recipe-title {
+    font-size: 1.2rem !important;
+    color: #000 !important;
+  }
+}
+
 </style>""", unsafe_allow_html=True)
 
 
