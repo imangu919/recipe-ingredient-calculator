@@ -1,15 +1,21 @@
 
 import streamlit as st
+st.set_page_config(page_title="🧑‍🍳Chef Tai", layout="centered")
+
 
 st.markdown("""
 <style>
-/* Selectively force black text for headings and body text */
-[data-testid="stAppViewContainer"] h1,
-[data-testid="stAppViewContainer"] h2,
-[data-testid="stAppViewContainer"] h3,
-[data-testid="stAppViewContainer"] p,
-[data-testid="stAppViewContainer"] li,
-
+  /* 只对 h1~h3、p、li 强制黑色 */
+  h1, h2, h3, p, li {
+    color: #000000 !important;
+  }
+  /* 手机下再把字级往下调 */
+  @media (max-width: 600px) {
+    h1 { font-size: 2rem !important; }
+    h2, h3 { font-size: 1.2rem !important; }
+  }
+</style>
+""", unsafe_allow_html=True)
 
 /* Mobile-specific font-size adjustments */
 @media (max-width: 600px) {
