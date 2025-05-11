@@ -33,7 +33,7 @@ import re
 def format_quantity(val):
     return str(int(val)) if float(val).is_integer() else f"{val:.1f}"
 
-@st.cache_data
+#@st.cache_data
 def load_data():
     df = pd.read_excel("Recipe_Database_Corrected.xlsx", sheet_name=None)
     ingredients = df["Ingredients"]
