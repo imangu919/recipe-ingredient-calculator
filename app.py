@@ -10,8 +10,7 @@ st.markdown("""
 [data-testid="stAppViewContainer"] h2,
 [data-testid="stAppViewContainer"] h3,
 [data-testid="stAppViewContainer"] p,
-[data-testid="stAppViewContainer"] li,
-[data-testid="stAppViewContainer"] span {
+[data-testid="stAppViewContainer"] li {
 color: #000 !important;
 }
 
