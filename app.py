@@ -1,21 +1,42 @@
 
 import streamlit as st
 
+# --- Force light theme and adjust mobile font-size ---
+st.markdown("""
+<style>
+/* Force light mode and black text globally */
+:root { color-scheme: light !important; }
+* { color: #000 !important; }
+
+/* Header adjustments */
+.main-header {
+    color: #000 !important;
+    font-size: 3rem !important;
+}
+
+/* Recipe title adjustments */
+.recipe-title {
+    color: #000 !important;
+    font-size: 2rem !important;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 600px) {
+    .main-header {
+        font-size: 2rem !important;
+    }
+    .recipe-title {
+        font-size: 1.2rem !important;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 st.markdown("""<style>
 [data-testid="stAppViewContainer"] {
     background-color: #d8d4c0;
 }
-
-@media (max-width: 600px) {
-  .main-header {
-    font-size: 1.5rem !important;
-  }
-  .recipe-title {
-    font-size: 1.2rem !important;
-    color: #000 !important;
-  }
-}
-
 </style>""", unsafe_allow_html=True)
 
 
@@ -33,7 +54,7 @@ import re
 def format_quantity(val):
     return str(int(val)) if float(val).is_integer() else f"{val:.1f}"
 
-#@st.cache_data
+@st.cache_data
 def load_data():
     df = pd.read_excel("Recipe_Database_Corrected.xlsx", sheet_name=None)
     ingredients = df["Ingredients"]
