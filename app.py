@@ -3,6 +3,29 @@ import streamlit as st
 
 st.markdown("""
 <style>
+  /* Force light mode color scheme but only headings & text, excluding code blocks */
+  :root { color-scheme: light !important; }
+
+  /* Headings and paragraphs forced black */
+  h1, h2, h3, p, li {
+    color: #000 !important;
+  }
+
+  /* Mobile font size adjustments */
+  @media (max-width: 600px) {
+    h1 {
+      font-size: 2rem !important;
+    }
+    h2, h3 {
+      font-size: 1.2rem !important;
+    }
+  }
+</style>
+""", unsafe_allow_html=True)
+
+
+st.markdown("""
+<style>
 /* Selectively force black text for headings and body text */
 [data-testid="stAppViewContainer"] h1,
 [data-testid="stAppViewContainer"] h2,
@@ -25,21 +48,6 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
-
-
-st.markdown("""<style>
-[data-testid="stAppViewContainer"] {
-    background-color: #d8d4c0;
-}
-
-  /* Global heading size adjustments */
-  h1 {
-    font-size: 2rem !important;
-  }
-  h3 {
-    font-size: 1rem !important;
-  }
-</style>""", unsafe_allow_html=True)
 
 
 from pathlib import Path
