@@ -3,7 +3,7 @@ import streamlit as st
 st.set_page_config(page_title="🧑‍🍳Chef Tai", layout="centered")
 
 
-st.markdown("""
+css = """
 <style>
   /* 只对 h1~h3、p、li 强制黑色 */
   h1, h2, h3, p, li {
@@ -15,7 +15,8 @@ st.markdown("""
     h2, h3 { font-size: 1.2rem !important; }
   }
 </style>
-""", unsafe_allow_html=True)
+"""
+st.markdown(css, unsafe_allow_html=True)
 
 /* Mobile-specific font-size adjustments */
 @media (max-width: 600px) {
