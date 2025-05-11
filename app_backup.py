@@ -1,36 +1,6 @@
 
 import streamlit as st
 
-st.markdown("""
-<style>
-  /* 强制浅色模式但不全局改色，只改标题 */
-  :root { color-scheme: light !important; }
-
-  /* Header 标题（图片下方）的颜色与大小 */
-  .main-header {
-    color: #000 !important;
-    font-size: 3rem !important;
-  }
-
-  /* 食谱名称标题 */
-  .recipe-title {
-    color: #000 !important;
-    font-size: 2rem !important;
-  }
-
-  /* 手机屏幕 (≤600px) 再缩小 */
-  @media (max-width: 600px) {
-    .main-header {
-      font-size: 2rem !important;
-    }
-    .recipe-title {
-      font-size: 1.2rem !important;
-    }
-  }
-</style>
-""", unsafe_allow_html=True)
-
-
 # --- Force light theme and adjust mobile font-size ---
 st.markdown("""
 <style>
@@ -61,6 +31,13 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
+
+
+st.markdown("""<style>
+[data-testid="stAppViewContainer"] {
+    background-color: #d8d4c0;
+}
+</style>""", unsafe_allow_html=True)
 
 
 from pathlib import Path
