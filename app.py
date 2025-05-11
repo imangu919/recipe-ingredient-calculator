@@ -5,6 +5,14 @@ st.markdown("""<style>
 [data-testid="stAppViewContainer"] {
     background-color: #d8d4c0;
 }
+
+  /* Global heading size adjustments */
+  h1 {
+    font-size: 2rem !important;
+  }
+  h3 {
+    font-size: 1rem !important;
+  }
 </style>""", unsafe_allow_html=True)
 
 
