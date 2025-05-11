@@ -1,22 +1,18 @@
 
 import streamlit as st
-st.set_page_config(page_title="Savors in the Bay", layout="centered")  # preserve default
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
-.main-header { background-color: #efede5;
-  color: #FFC107;
-  font-family: 'Pacifico', cursive;
-  font-size: 3rem;
-  text-align: center;
-  padding: 1rem 0;
-  margin-bottom: 1rem;
+
+st.markdown("""<style>
+[data-testid="stAppViewContainer"] {
+    background-color: #d8d4c0;
 }
-.recipe-title { font-family: 'Pacifico', cursive !important; }
-[data-testid="stAppViewContainer"] { background-color: #d8d4c0; }
-</style>
-""", unsafe_allow_html=True)
-st.markdown('<div class="main-header">Chef Tai</div>', unsafe_allow_html=True)
+</style>""", unsafe_allow_html=True)
+
+
+from pathlib import Path
+header_path = Path(__file__).parent / 'chef_tai_header_centered.png'
+if header_path.exists():
+    st.image(str(header_path), use_container_width=True)
+
 import pandas as pd
 import requests
 from io import BytesIO
