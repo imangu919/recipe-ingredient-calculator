@@ -5,18 +5,15 @@ st.set_page_config(page_title="🧑‍🍳Chef Tai", layout="centered")
 
 st.markdown("""
 <style>
-  /* 强制浅色模式，但只作用于标题和正文字体 */
-  :root { color-scheme: light !important; }
-  h1, h2, h3, p, li {
-    color: #000000 !important;
-  }
-  /* 手机屏幕宽度 ≤600px 时再缩小字体 */
-  @media (max-width: 600px) {
-    h1 { font-size: 2rem !important; }
-    h2, h3 { font-size: 1.2rem !important; }
-  }
-</style>
-""", unsafe_allow_html=True)
+/* Selectively force black text for headings and body text */
+[data-testid="stAppViewContainer"] h1,
+[data-testid="stAppViewContainer"] h2,
+[data-testid="stAppViewContainer"] h3,
+[data-testid="stAppViewContainer"] p,
+[data-testid="stAppViewContainer"] li,
+[data-testid="stAppViewContainer"] span {
+color: #000 !important;
+}
 
 
 /* Mobile-specific font-size adjustments */
