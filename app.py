@@ -1,6 +1,32 @@
 
 import streamlit as st
 
+st.markdown("""
+<style>
+/* Selectively force black text for headings and body text */
+[data-testid="stAppViewContainer"] h1,
+[data-testid="stAppViewContainer"] h2,
+[data-testid="stAppViewContainer"] h3,
+[data-testid="stAppViewContainer"] p,
+[data-testid="stAppViewContainer"] li,
+[data-testid="stAppViewContainer"] span {
+  color: #000 !important;
+}
+
+/* Mobile-specific font-size adjustments */
+@media (max-width: 600px) {
+  [data-testid="stAppViewContainer"] h1 {
+    font-size: 2rem !important;
+  }
+  [data-testid="stAppViewContainer"] h2,
+  [data-testid="stAppViewContainer"] h3 {
+    font-size: 1.2rem !important;
+  }
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 st.markdown("""<style>
 [data-testid="stAppViewContainer"] {
     background-color: #d8d4c0;

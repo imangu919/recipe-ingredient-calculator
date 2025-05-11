@@ -1,42 +1,18 @@
 
 import streamlit as st
 
-# --- Force light theme and adjust mobile font-size ---
-st.markdown("""
-<style>
-/* Force light mode and black text globally */
-:root { color-scheme: light !important; }
-* { color: #000 !important; }
-
-/* Header adjustments */
-.main-header {
-    color: #000 !important;
-    font-size: 3rem !important;
-}
-
-/* Recipe title adjustments */
-.recipe-title {
-    color: #000 !important;
-    font-size: 2rem !important;
-}
-
-/* Mobile-specific adjustments */
-@media (max-width: 600px) {
-    .main-header {
-        font-size: 2rem !important;
-    }
-    .recipe-title {
-        font-size: 1.2rem !important;
-    }
-}
-</style>
-""", unsafe_allow_html=True)
-
-
 st.markdown("""<style>
 [data-testid="stAppViewContainer"] {
     background-color: #d8d4c0;
 }
+
+  /* Global heading size adjustments */
+  h1 {
+    font-size: 2rem !important;
+  }
+  h3 {
+    font-size: 1rem !important;
+  }
 </style>""", unsafe_allow_html=True)
 
 
