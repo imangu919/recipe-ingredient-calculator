@@ -109,8 +109,8 @@ if 'selected_subcategory' not in st.session_state:
     st.session_state.selected_subcategory = 'All'
 
 # Category & Style Filters
-category_display = "類別 (選用)" if lang == "中文" else "Category(Optional)"
-style_display = "風格(選用)" if lang == "中文" else "Style(Optional)"
+category_display = "類別 (非必選)" if lang == "中文" else "Category (Optional)"
+style_display = "風格 (非必選)" if lang == "中文" else "Style (Optional)"
 category_options = ['All'] + sorted(recipes_df['Category_zh' if lang == "中文" else 'Category'].dropna().unique())
 style_options = ['All'] + sorted(recipes_df['SubCategory_zh' if lang == "中文" else 'SubCategory'].dropna().unique())
 
@@ -202,7 +202,7 @@ if selected:
             st.markdown(f"⏱️ Estimated Time: {total_recipe_time} min")
 
         # Display Tool Collection Bag
-        st.subheader("🧰 工具收集袋" if lang == "中文" else "🧰 Tool Collection Bag")
+        st.subheader("🧰 工具清單" if lang == "中文" else "🧰 Tool List")
         recipe_tools = tools_df[tools_df["RecipeID"] == recipe_id]
         if recipe_tools.empty:
             st.info("工具資料待補" if lang == "中文" else "Tool data to be added")
