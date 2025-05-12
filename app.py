@@ -9,18 +9,18 @@ st.markdown("""
 [data-testid="stAppViewContainer"] h3,
 [data-testid="stAppViewContainer"] p,
 [data-testid="stAppViewContainer"] li {
-color: #000 !important;
+    color: #000 !important;
 }
 
 /* Mobile-specific font-size adjustments */
 @media (max-width: 600px) {
-  [data-testid="stAppViewContainer"] h1 {
-    font-size: 2rem !important;
-  }
-  [data-testid="stAppViewContainer"] h2,
-  [data-testid="stAppViewContainer"] h3 {
-    font-size: 1.2rem !important;
-  }
+    [data-testid="stAppViewContainer"] h1 {
+        font-size: 2rem !important;
+    }
+    [data-testid="stAppViewContainer"] h2,
+    [data-testid="stAppViewContainer"] h3 {
+        font-size: 1.2rem !important;
+    }
 }
 
 /* Adjust column widths in Sequence table */
@@ -51,7 +51,8 @@ table[data-testid="stTable"] td:nth-child(5) { /* Parallel */
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""<style>
+st.markdown("""
+<style>
 [data-testid="stAppViewContainer"] {
     background-color: #d8d4c0;
 }
@@ -63,7 +64,8 @@ h1 {
 h3 {
     font-size: 1rem !important;
 }
-</style>""", unsafe_allow_html=True)
+</style>
+""", unsafe_allow_html=True)
 
 from pathlib import Path
 header_path = Path(__file__).parent / 'chef_tai_header_centered.png'
@@ -199,7 +201,6 @@ if selected:
             st.markdown(f"🍳 Method: {info['Method']}")
             st.markdown(f"⏱️ Estimated Time: {total_recipe_time} min")
 
-
         # Display Tool Collection Bag
         st.subheader("🧰 工具收集袋" if lang == "中文" else "🧰 Tool Collection Bag")
         recipe_tools = tools_df[tools_df["RecipeID"] == recipe_id]
@@ -207,13 +208,21 @@ if selected:
             st.info("工具資料待補" if lang == "中文" else "Tool data to be added")
         else:
             if lang == "中文":
-                tool_display = recipe_tools[["ToolName_zh", "Optional"]]
-                tool_display.columns = ["工具", "選用"]
-                tool_display["選用"] = tool_display["選用"].apply(lambda x: "✓" if x in ["✓", "V"] else "")
+                tool_display = recipe_tools[["ToolName_zh"]]
+                tool_display.columns = ["工具"]
+                # Add Optional column if it exists, otherwise default to empty string
+                if "Optional" in recipe_tools.columns:
+                    tool_display["選用"] = recipe_tools["Optional"].apply(lambda x: "✓" if x else "")
+                else:
+                    tool_display["選用"] = ""
             else:
-                tool_display = recipe_tools[["ToolName", "Optional"]]
-                tool_display.columns = ["Tool", "Optional"]
-                tool_display["Optional"] = tool_display["Optional"].apply(lambda x: "(optional)" if x in ["✓", "V"] else "")
+                tool_display = recipe_tools[["ToolName"]]
+                tool_display.columns = ["Tool"]
+                # Add Optional column if it exists, otherwise default to empty string
+                if "Optional" in recipe_tools.columns:
+                    tool_display["Optional"] = recipe_tools["Optional"].apply(lambda x: "(optional)" if x else "")
+                else:
+                    tool_display["Optional"] = ""
             st.table(tool_display.reset_index(drop=True))
 
         # Components title and table display
@@ -282,50 +291,74 @@ if selected:
                 sequence_df["並行" if lang == "中文" else "Parallel"] = sequence_df["並行" if lang == "中文" else "Parallel"].apply(lambda x: "✓" if x else "")
             st.table(sequence_df.reset_index(drop=True))
 
-    # Shopping list with total estimated time and aggregated tools
+    # Separator before the Shopping List section
+    st.markdown("---")
+    # Shopping list with total estimated time and aggregated ingredients/tools
     st.subheader("📝 採購清單" if lang == "中文" else "📝 Porcurement")
     all_df = filtered_df[filtered_df["RecipeDisplay"].isin(selected)].copy()
     all_df["Multiplier"] = all_df["RecipeDisplay"].map(multipliers)
     all_df["TotalAmount"] = all_df["Amount"] * all_df["Multiplier"]
 
-    # Calculate total time for all selected recipes (excluding parallel steps)
-    total_time = 0
-    for recipe_id in selected_ids:
-        recipe_steps = steps_df[steps_df["RecipeID"] == recipe_id]
-        if 'Parallel' in recipe_steps.columns and 'CycleTime' in recipe_steps.columns:
-            total_time += recipe_steps[recipe_steps["Parallel"] == False]["CycleTime"].sum()
-
     # Aggregate ingredients
+    ingredient_lines = []
     if lang == "中文":
-        st.markdown(f"### ⏱️ 預估總時間：{total_time} 分鐘")
         all_df["食材"] = all_df["Ingredient_zh"]
         summary = all_df.groupby(["食材", "Unit", "Optional"])["TotalAmount"].sum().reset_index()
         summary["數量"] = summary["TotalAmount"].apply(format_quantity)
         summary["選用"] = summary["Optional"].apply(lambda x: "✓" if x else "")
         summary = summary[["食材", "數量", "Unit", "選用"]]
         summary.columns = ["食材", "數量", "單位", "選用"]
-        lines = [f"{row['食材']}: {row['數量']}{row['單位']}" + (" (選用)" if row['選用'] else "") for _, row in summary.iterrows()]
+        ingredient_lines = [f"{row['食材']}: {row['數量']}{row['單位']}" + (" (選用)" if row['選用'] else "") for _, row in summary.iterrows()]
     else:
-        st.markdown(f"### ⏱️ Estimated Total Time: {total_time} min")
         summary = all_df.groupby(["Ingredient", "Unit", "Optional"])["TotalAmount"].sum().reset_index()
         summary["Quantity"] = summary["TotalAmount"].apply(format_quantity)
         summary["Optional"] = summary["Optional"].apply(lambda x: "✓" if x else "")
         summary = summary[["Ingredient", "Quantity", "Unit", "Optional"]]
-        lines = [f"{row['Ingredient']}: {row['Quantity']}{row['Unit']}" + (" (optional)" if row['Optional'] else "") for _, row in summary.iterrows()]
+        ingredient_lines = [f"{row['Ingredient']}: {row['Quantity']}{row['Unit']}" + (" (optional)" if row['Optional'] else "") for _, row in summary.iterrows()]
 
     # Aggregate tools
+    tool_lines = []
     all_tools = tools_df[tools_df["RecipeID"].isin(selected_ids)].copy()
     if not all_tools.empty:
         if lang == "中文":
             tool_summary = all_tools.groupby(["ToolName_zh", "Optional"]).size().reset_index(name="Count")
-            tool_summary["選用"] = tool_summary["Optional"].apply(lambda x: "✓" if x in ["✓", "V"] else "")
+            if "Optional" in all_tools.columns:
+                tool_summary["選用"] = tool_summary["Optional"].apply(lambda x: "✓" if x else "")
+            else:
+                tool_summary["選用"] = ""
             tool_lines = [f"{row['ToolName_zh']}" + (" (選用)" if row['選用'] else "") for _, row in tool_summary.iterrows()]
         else:
             tool_summary = all_tools.groupby(["ToolName", "Optional"]).size().reset_index(name="Count")
-            tool_summary["Optional"] = tool_summary["Optional"].apply(lambda x: "(optional)" if x in ["✓", "V"] else "")
+            if "Optional" in all_tools.columns:
+                tool_summary["Optional"] = tool_summary["Optional"].apply(lambda x: "(optional)" if x else "")
+            else:
+                tool_summary["Optional"] = ""
             tool_lines = [f"{row['ToolName']}" + (" (optional)" if row['Optional'] else "") for _, row in tool_summary.iterrows()]
-        lines.extend(tool_lines)
 
-    st.code("\n".join(lines))
+    # Display ingredients and tools with bullet and heading styled using HTML
+    st.markdown(
+        f'<span style="margin-right: 5px;">•</span><span style="font-size: 1rem; font-weight: bold;">{"食材總和" if lang == "中文" else "Ingredients Summary"}</span>',
+        unsafe_allow_html=True
+    )
+    st.code("\n".join(ingredient_lines))
+    st.markdown(
+        f'<span style="margin-right: 5px;">•</span><span style="font-size: 1rem; font-weight: bold;">{"工具總和" if lang == "中文" else "Tools Summary"}</span>',
+        unsafe_allow_html=True
+    )
+    if tool_lines:
+        st.code("\n".join(tool_lines))
+    else:
+        st.info("工具資料待補" if lang == "中文" else "Tool data to be added")
+
+    # Separator before total time
+    st.markdown("---")
+    st.markdown("### ⏱️ 預估總時間" if lang == "中文" else "### ⏱️ Estimated Total Time")
+    # Calculate total time for all selected recipes (excluding parallel steps)
+    total_time = 0
+    for recipe_id in selected_ids:
+        recipe_steps = steps_df[steps_df["RecipeID"] == recipe_id]
+        if 'Parallel' in recipe_steps.columns and 'CycleTime' in recipe_steps.columns:
+            total_time += recipe_steps[recipe_steps["Parallel"] == False]["CycleTime"].sum()
+    st.markdown(f"{total_time} 分鐘" if lang == "中文" else f"{total_time} min")
 else:
     st.info("請選擇至少一道食譜" if lang == "中文" else "Please select at least one recipe.")
