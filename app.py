@@ -1,6 +1,15 @@
 import streamlit as st
+from pathlib import Path
+import pandas as pd
+import requests
+from io import BytesIO
+from PIL import Image
+import re
+
+# Set page configuration
 st.set_page_config(page_title="🧑‍🍳Chef Tai🛠️", layout="centered")
 
+# Custom CSS
 st.markdown("""
 <style>
 /* Selectively force black text for headings and body text */
@@ -67,20 +76,29 @@ h3 {
 </style>
 """, unsafe_allow_html=True)
 
-from pathlib import Path
+# Load header image
 header_path = Path(__file__).parent / 'chef_tai_header_centered.png'
 if header_path.exists():
     st.image(str(header_path), use_container_width=True)
 
-import pandas as pd
-import requests
-from io import BytesIO
-from PIL import Image
-import re
+# Visit counter logic
+counter_file = Path(__file__).parent / 'visit_count.txt'
+if counter_file.exists():
+    with open(counter_file, 'r') as f:
+        visit_count = int(f.read().strip()) + 1
+else:
+    visit_count = 1
+with open(counter_file, 'w') as f:
+    f.write(str(visit_count))
 
+# Display visit count
+st.markdown(f"**Total Visits: {visit_count}**")
+
+# Utility function for formatting quantities
 def format_quantity(val):
     return str(int(val)) if float(val).is_integer() else f"{val:.1f}"
 
+# Load data
 @st.cache_data
 def load_data():
     df = pd.read_excel("Recipe_Database_Corrected.xlsx", sheet_name=None)
@@ -89,7 +107,7 @@ def load_data():
     components = df["Components"]
     ingredient_dict = df["IngredientDict"]
     steps = df["Steps"]
-    tools = df.get("Tools", pd.DataFrame(columns=["RecipeID", "ToolName", "ToolName_zh", "Optional"]))  # Load Tools with Optional column
+    tools = df.get("Tools", pd.DataFrame(columns=["RecipeID", "ToolName", "ToolName_zh", "Optional"]))
     merged = (
         ingredients
         .merge(components.drop(columns=["RecipeID"]), on="ComponentID", how="left")
@@ -99,8 +117,10 @@ def load_data():
     return merged, recipes, steps, tools
 
 df, recipes_df, steps_df, tools_df = load_data()
+
+# Language selection
 lang = st.radio("選擇語言 / Choose Language", ["中文", "English"])
-st.title("🧑‍🍳🛠️ 食譜組裝器" if lang == "中文" else "🧑‍🍳🛠️ Taste Fabrication")
+st.title("🧑‍🍳🛠️ 食譜組裝器" if lang == "中文" else "🧑‍🍳🛠️ Flavor Engine")
 
 # Session state for filter management
 if 'selected_category' not in st.session_state:
