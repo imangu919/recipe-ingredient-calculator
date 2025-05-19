@@ -12,12 +12,37 @@ st.set_page_config(page_title="🧑‍🍳Chef Tai🛠️", layout="centered")
 # Custom CSS
 st.markdown("""
 <style>
-/* Selectively force black text for headings and body text */
+/* Ensure button text is visible in dark mode */
+@media (prefers-color-scheme: dark) {
+    [data-testid="stButton"] button {
+        color: #fff !important;
+    }
+    [data-testid="stButton"] button p {
+        color: #fff !important;
+    }
+}
+
+/* Force black text for content elements, exclude interactive widgets */
+[data-testid="stAppViewContainer"] {
+    background-color: #d8d4c0 !important;
+}
+
+/* Apply black text to content elements only */
 [data-testid="stAppViewContainer"] h1,
 [data-testid="stAppViewContainer"] h2,
 [data-testid="stAppViewContainer"] h3,
 [data-testid="stAppViewContainer"] p,
-[data-testid="stAppViewContainer"] li {
+[data-testid="stAppViewContainer"] li,
+[data-testid="stAppViewContainer"] td,
+[data-testid="stAppViewContainer"] th,
+[data-testid="stAppViewContainer"] div.stMarkdown,
+[data-testid="stAppViewContainer"] div.stInfo,
+[data-testid="stAppViewContainer"] div.stCodeBlock {
+    color: #000 !important;
+}
+
+/* Force black text for slider values */
+[data-testid="stSlider"] .stSliderValue {
     color: #000 !important;
 }
 
@@ -56,22 +81,6 @@ table[data-testid="stTable"] td:nth-child(5) { /* Parallel */
     min-width: 60px !important;
     max-width: 60px !important;
     word-break: normal;
-}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<style>
-[data-testid="stAppViewContainer"] {
-    background-color: #d8d4c0;
-}
-
-/* Global heading size adjustments */
-h1 {
-    font-size: 2rem !important;
-}
-h3 {
-    font-size: 1rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -213,11 +222,11 @@ if selected:
         recipe_steps = steps_df[steps_df["RecipeID"] == recipe_id]
         total_recipe_time = recipe_steps[recipe_steps["Parallel"] == False]["CycleTime"].sum() if 'Parallel' in recipe_steps.columns and 'CycleTime' in recipe_steps.columns else 0
         if lang == "中文":
-            st.markdown(f"### 🍽️ {recipe} — 👥 分量：{portion}")
+            st.markdown(f"### 🍽️ {recipe} - 👥 分量：{portion}")
             st.markdown(f"🍳 做法：{info['Method']}")
             st.markdown(f"⏱️ 預估時間：{total_recipe_time} 分鐘")
         else:
-            st.markdown(f"### 🍽️ {recipe} — 👥 Portion: {portion}")
+            st.markdown(f"### 🍽️ {recipe} - 👥 Portion: {portion}")
             st.markdown(f"🍳 Method: {info['Method']}")
             st.markdown(f"⏱️ Estimated Time: {total_recipe_time} min")
 
@@ -292,6 +301,10 @@ if selected:
                 "Parallel": "並行" if lang == "中文" else "Parallel"
             })
             
+            # Process instructions for line breaks
+            instruction_col = "說明" if lang == "中文" else "Instruction"
+            step_data[instruction_col] = step_data[instruction_col].apply(lambda x: str(x).replace('\n', '<br>').replace('; ', '<br>') if pd.notnull(x) else x)
+            
             # Adjust Part to show only on first occurrence
             sequence_data = []
             last_part = None
@@ -309,7 +322,8 @@ if selected:
             # Only apply Parallel transformation if the column exists
             if "並行" in sequence_df.columns if lang == "中文" else "Parallel" in sequence_df.columns:
                 sequence_df["並行" if lang == "中文" else "Parallel"] = sequence_df["並行" if lang == "中文" else "Parallel"].apply(lambda x: "✓" if x else "")
-            st.table(sequence_df.reset_index(drop=True))
+            # Render table with HTML for line breaks
+            st.markdown(sequence_df.to_html(escape=False, index=False), unsafe_allow_html=True)
 
     # Separator before the Shopping List section
     st.markdown("---")
