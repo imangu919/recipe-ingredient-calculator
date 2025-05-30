@@ -5,9 +5,6 @@ import requests
 from io import BytesIO
 from PIL import Image
 import re
-import random
-import json
-from datetime import datetime
 
 # Set page configuration
 st.set_page_config(page_title="🧑‍🍳Chef Tai🛠️", layout="centered")
@@ -46,12 +43,6 @@ st.markdown("""
 
 /* Force black text for slider values */
 [data-testid="stSlider"] .stSliderValue {
-    color: #000 !important;
-}
-
-/* Force black text for number input labels and values */
-[data-testid="stNumberInput"] label,
-[data-testid="stNumberInput"] input {
     color: #000 !important;
 }
 
@@ -99,40 +90,18 @@ header_path = Path(__file__).parent / 'chef_tai_header_centered.png'
 if header_path.exists():
     st.image(str(header_path), use_container_width=True)
 
-# Language selection (Moved here to ensure lang is defined before use)
-lang = st.radio("選擇語言 / Choose Language", ["中文", "English"])
-
-# Visit counter logic with date tracking
-visit_file = Path(__file__).parent / 'visit_history.json'
-current_date = datetime.now().strftime("%Y-%m-%d")  # e.g., "2025-05-30"
-
-# Initialize or load visit history
-if visit_file.exists():
-    with open(visit_file, 'r') as f:
-        visit_data = json.load(f)
+# Visit counter logic
+counter_file = Path(__file__).parent / 'visit_count.txt'
+if counter_file.exists():
+    with open(counter_file, 'r') as f:
+        visit_count = int(f.read().strip()) + 1
 else:
-    visit_data = {"visits": []}
+    visit_count = 1
+with open(counter_file, 'w') as f:
+    f.write(str(visit_count))
 
-# Add current visit with timestamp
-current_timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-visit_data["visits"].append({"timestamp": current_timestamp})
-
-# Save updated visit history
-with open(visit_file, 'w') as f:
-    json.dump(visit_data, f, indent=4)
-
-# Calculate total and today's visits
-total_visits = len(visit_data["visits"])
-today_visits = sum(1 for visit in visit_data["visits"] if visit["timestamp"].startswith(current_date))
-
-# Display visit counts
-if lang == "中文":
-    st.markdown(f"**今日訪客數：{today_visits} | 歷史總訪客數：{total_visits}**")
-else:
-    st.markdown(f"**Today's Visits: {today_visits} | Total Visits: {total_visits}**")
-
-# Title after language selection
-st.title("🧑‍🍳🛠️ 食譜組裝器" if lang == "中文" else "🧑‍🍳🛠️ Flavor Engine")
+# Display visit count
+st.markdown(f"**Total Visits: {visit_count}**")
 
 # Utility function for formatting quantities
 def format_quantity(val):
@@ -157,6 +126,10 @@ def load_data():
     return merged, recipes, steps, tools
 
 df, recipes_df, steps_df, tools_df = load_data()
+
+# Language selection
+lang = st.radio("選擇語言 / Choose Language", ["中文", "English"])
+st.title("🧑‍🍳🛠️ 食譜組裝器" if lang == "中文" else "🧑‍🍳🛠️ Flavor Engine")
 
 # Session state for filter management
 if 'selected_category' not in st.session_state:
@@ -190,103 +163,20 @@ if st.button("清除篩選" if lang == "中文" else "Clear Filters"):
     st.session_state.selected_subcategory = 'All'
     st.rerun()
 
-# Chef Tai's Surprise Pick Section (Collapsed by default)
-with st.expander("🎉 Chef Tai的驚喜挑選" if lang == "中文" else "🎉 Chef Tai's Surprise Pick", expanded=False):
-    # Mode selection: Basic or Advanced
-    mode = st.radio("選擇模式" if lang == "中文" else "Select Mode", ["基本模式", "進階模式"] if lang == "中文" else ["Basic Mode", "Advanced Mode"])
+filtered_df = df.copy()
+if selected_category != 'All':
+    category_key = 'Category_zh' if lang == "中文" else 'Category'
+    filtered_df = filtered_df[filtered_df[category_key] == selected_category]
+if selected_subcategory != 'All':
+    subcategory_key = 'SubCategory_zh' if lang == "中文" else 'SubCategory'
+    filtered_df = filtered_df[filtered_df[subcategory_key] == selected_subcategory]
 
-    # Initialize selected recipes list
-    if 'selected' not in st.session_state:
-        st.session_state.selected = []
-
-    filtered_df = df.copy()
-    if selected_category != 'All':
-        category_key = 'Category_zh' if lang == "中文" else 'Category'
-        filtered_df = filtered_df[filtered_df[category_key] == selected_category]
-    if selected_subcategory != 'All':
-        subcategory_key = 'SubCategory_zh' if lang == "中文" else 'SubCategory'
-        filtered_df = filtered_df[filtered_df[subcategory_key] == selected_subcategory]
-
-    filtered_df["RecipeDisplay"] = filtered_df["RecipeName_zh"] if lang == "中文" else filtered_df["RecipeName"]
-    recipe_options = filtered_df["RecipeDisplay"].unique()
-
-    # Basic Mode: Select number of dishes and randomize
-    if mode == ("基本模式" if lang == "中文" else "Basic Mode"):
-        num_dishes = st.number_input("選擇隨機餐點數量" if lang == "中文" else "Number of Dishes to Randomize", min_value=1, max_value=5, value=1)
-        if st.button("隨機挑選" if lang == "中文" else "Random Pick"):
-            available_recipes = list(recipe_options)
-            if len(available_recipes) == 0:
-                st.error("目前篩選條件下無可用食譜" if lang == "中文" else "No recipes available under current filters.")
-            else:
-                num_to_select = min(num_dishes, len(available_recipes))
-                selected_recipes = random.sample(available_recipes, num_to_select)
-                st.session_state.selected = selected_recipes
-                st.success(f"已隨機挑選 {num_to_select} 道餐點！" if lang == "中文" else f"Randomly selected {num_to_select} dishes!")
-
-    # Advanced Mode: Specify filters for each dish
-    else:
-        num_dishes = st.number_input("選擇隨機餐點數量" if lang == "中文" else "Number of Dishes to Randomize", min_value=1, max_value=5, value=1)
-        filters = []
-        for i in range(num_dishes):
-            st.markdown(f"**第 {i+1} 道餐點設定**" if lang == "中文" else f"**Dish {i+1} Settings**")
-            cat = st.selectbox(
-                f"類別 (第 {i+1} 道)" if lang == "中文" else f"Category (Dish {i+1})",
-                category_options,
-                key=f"adv_category_{i}"
-            )
-            if cat != 'All':
-                category_key = 'Category_zh' if lang == "中文" else 'Category'
-                filtered_for_style = recipes_df[recipes_df[category_key] == cat]
-                available_styles = ['All'] + sorted(filtered_for_style['SubCategory_zh' if lang == "中文" else 'SubCategory'].dropna().unique())
-            else:
-                available_styles = style_options
-            subcat = st.selectbox(
-                f"風格 (第 {i+1} 道)" if lang == "中文" else f"Style (Dish {i+1})",
-                available_styles,
-                key=f"adv_subcategory_{i}"
-            )
-            filters.append((cat, subcat))
-
-        if st.button("隨機挑選" if lang == "中文" else "Random Pick"):
-            selected_recipes = []
-            used_recipes = set()  # To avoid duplicates
-            for cat, subcat in filters:
-                temp_df = filtered_df.copy()
-                if cat != 'All':
-                    category_key = 'Category_zh' if lang == "中文" else 'Category'
-                    temp_df = temp_df[temp_df[category_key] == cat]
-                if subcat != 'All':
-                    subcategory_key = 'SubCategory_zh' if lang == "中文" else 'SubCategory'
-                    temp_df = temp_df[temp_df[subcategory_key] == subcat]
-                
-                available_recipes = list(set(temp_df["RecipeDisplay"].unique()) - used_recipes)
-                if len(available_recipes) == 0:
-                    st.warning(f"第 {len(selected_recipes)+1} 道餐點無符合條件的食譜，將跳過。" if lang == "中文" else f"No recipes match the criteria for dish {len(selected_recipes)+1}, skipping.")
-                    continue
-                selected_recipe = random.choice(available_recipes)
-                selected_recipes.append(selected_recipe)
-                used_recipes.add(selected_recipe)
-            
-            if selected_recipes:
-                st.session_state.selected = selected_recipes
-                st.success(f"已隨機挑選 {len(selected_recipes)} 道餐點！" if lang == "中文" else f"Randomly selected {len(selected_recipes)} dishes!")
-            else:
-                st.error("無符合條件的食譜可選取。" if lang == "中文" else "No recipes match the criteria.")
-
-# Display selected recipes (manual or random)
+filtered_df["RecipeDisplay"] = filtered_df["RecipeName_zh"] if lang == "中文" else filtered_df["RecipeName"]
+recipe_options = filtered_df["RecipeDisplay"].unique()
 if len(recipe_options) > 0:
-    # Filter st.session_state.selected to match current recipe_options
-    valid_selected = [item for item in st.session_state.selected if item in recipe_options]
-    selected = st.multiselect(
-        "請選擇食譜" if lang == "中文" else "Select Recipe",
-        recipe_options,
-        default=valid_selected
-    )
-    # Update session state with the new selection
-    st.session_state.selected = selected
+    selected = st.multiselect("請選擇食譜" if lang == "中文" else "Select Recipe", recipe_options)
 else:
     selected = []
-    st.session_state.selected = []
     st.info("目前篩選條件下無可用食譜" if lang == "中文" else "No recipes available under current filters.")
 
 if selected:
@@ -328,6 +218,7 @@ if selected:
         # Recipe info display
         info = rec_df.iloc[0][["Portion", "Method"]]
         portion = f"{info['Portion']} x{mult}"
+        # Calculate total time for this recipe (excluding parallel steps)
         recipe_steps = steps_df[steps_df["RecipeID"] == recipe_id]
         total_recipe_time = recipe_steps[recipe_steps["Parallel"] == False]["CycleTime"].sum() if 'Parallel' in recipe_steps.columns and 'CycleTime' in recipe_steps.columns else 0
         if lang == "中文":
@@ -348,6 +239,7 @@ if selected:
             if lang == "中文":
                 tool_display = recipe_tools[["ToolName_zh"]]
                 tool_display.columns = ["工具"]
+                # Add Optional column if it exists, otherwise default to empty string
                 if "Optional" in recipe_tools.columns:
                     tool_display["選用"] = recipe_tools["Optional"].apply(lambda x: "✓" if x else "")
                 else:
@@ -355,6 +247,7 @@ if selected:
             else:
                 tool_display = recipe_tools[["ToolName"]]
                 tool_display.columns = ["Tool"]
+                # Add Optional column if it exists, otherwise default to empty string
                 if "Optional" in recipe_tools.columns:
                     tool_display["Optional"] = recipe_tools["Optional"].apply(lambda x: "(optional)" if x else "")
                 else:
@@ -392,6 +285,7 @@ if selected:
         st.subheader("📋 生產流程" if lang == "中文" else "📋 Sequence")
         step_data = steps_df[steps_df["RecipeID"] == recipe_id]
         
+        # Check if step_data is empty or missing required columns
         required_columns = ["StepOrder", "Part_zh" if lang == "中文" else "Part", "Instruction_zh" if lang == "中文" else "Instruction_en"]
         if step_data.empty or not all(col in step_data.columns for col in required_columns):
             st.info("步驟資料待補" if lang == "中文" else "Step data to be added")
@@ -407,9 +301,11 @@ if selected:
                 "Parallel": "並行" if lang == "中文" else "Parallel"
             })
             
+            # Process instructions for line breaks
             instruction_col = "說明" if lang == "中文" else "Instruction"
             step_data[instruction_col] = step_data[instruction_col].apply(lambda x: str(x).replace('\n', '<br>').replace('; ', '<br>') if pd.notnull(x) else x)
             
+            # Adjust Part to show only on first occurrence
             sequence_data = []
             last_part = None
             for index, row in step_data.iterrows():
@@ -419,20 +315,25 @@ if selected:
                     last_part = current_part
                 else:
                     new_row = row.copy()
-                    new_row["部位" if lang == "中文" else "Part"] = ""
+                    new_row["部位" if lang == "中文" else "Part"] = ""  # Empty Part for subsequent rows
                     sequence_data.append(new_row)
             
             sequence_df = pd.DataFrame(sequence_data)
+            # Only apply Parallel transformation if the column exists
             if "並行" in sequence_df.columns if lang == "中文" else "Parallel" in sequence_df.columns:
                 sequence_df["並行" if lang == "中文" else "Parallel"] = sequence_df["並行" if lang == "中文" else "Parallel"].apply(lambda x: "✓" if x else "")
+            # Render table with HTML for line breaks
             st.markdown(sequence_df.to_html(escape=False, index=False), unsafe_allow_html=True)
 
+    # Separator before the Shopping List section
     st.markdown("---")
-    st.subheader("📝 採購清單" if lang == "中文" else "📝 Procurement")
+    # Shopping list with total estimated time and aggregated ingredients/tools
+    st.subheader("📝 採購清單" if lang == "中文" else "📝 Porcurement")
     all_df = filtered_df[filtered_df["RecipeDisplay"].isin(selected)].copy()
     all_df["Multiplier"] = all_df["RecipeDisplay"].map(multipliers)
     all_df["TotalAmount"] = all_df["Amount"] * all_df["Multiplier"]
 
+    # Aggregate ingredients
     ingredient_lines = []
     if lang == "中文":
         all_df["食材"] = all_df["Ingredient_zh"]
@@ -449,6 +350,7 @@ if selected:
         summary = summary[["Ingredient", "Quantity", "Unit", "Optional"]]
         ingredient_lines = [f"{row['Ingredient']}: {row['Quantity']}{row['Unit']}" + (" (optional)" if row['Optional'] else "") for _, row in summary.iterrows()]
 
+    # Aggregate tools
     tool_lines = []
     all_tools = tools_df[tools_df["RecipeID"].isin(selected_ids)].copy()
     if not all_tools.empty:
@@ -467,6 +369,7 @@ if selected:
                 tool_summary["Optional"] = ""
             tool_lines = [f"{row['ToolName']}" + (" (optional)" if row['Optional'] else "") for _, row in tool_summary.iterrows()]
 
+    # Display ingredients and tools with bullet and heading styled using HTML
     st.markdown(
         f'<span style="margin-right: 5px;">•</span><span style="font-size: 1rem; font-weight: bold;">{"食材總和" if lang == "中文" else "Ingredients Summary"}</span>',
         unsafe_allow_html=True
@@ -481,8 +384,10 @@ if selected:
     else:
         st.info("工具資料待補" if lang == "中文" else "Tool data to be added")
 
+    # Separator before total time
     st.markdown("---")
     st.markdown("### ⏱️ 預估總時間" if lang == "中文" else "### ⏱️ Estimated Total Time")
+    # Calculate total time for all selected recipes (excluding parallel steps)
     total_time = 0
     for recipe_id in selected_ids:
         recipe_steps = steps_df[steps_df["RecipeID"] == recipe_id]
