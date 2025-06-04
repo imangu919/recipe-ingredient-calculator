@@ -164,7 +164,7 @@ else:
     st.markdown(f"**Today's Visits: {today_visits} | Total Visits: {total_visits}**")
 
 # Title after language selection
-st.title("🧑‍🍳🛠️ 食譜組裝器" if lang == "中文" else "🧑‍🍳🛠️ Flavor Engine")
+st.title("Flavor Engine🍔🛠️🎨" if lang == "中文" else "Flavor Engine🍔🛠️🎨")
 
 # Utility function for formatting quantities
 def format_quantity(val):
@@ -216,7 +216,7 @@ if 'selected_subcategory' not in st.session_state:
     st.session_state.selected_subcategory = 'All'
 
 # Chef Tai's Surprise Pick Section (精細挑選)
-with st.expander("🎉 Chef Tai的驚喜挑選" if lang == "中文" else "🎉 Chef Tai's Surprise Pick", expanded=False):
+with st.expander("❓驚喜挑選" if lang == "中文" else "❓Surprise Pick", expanded=False):
     mode = st.radio("選擇模式" if lang == "中文" else "Select Mode", ["基本模式", "進階模式"] if lang == "中文" else ["Basic Mode", "Advanced Mode"])
     if 'selected' not in st.session_state:
         st.session_state.selected = []
