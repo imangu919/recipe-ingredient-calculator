@@ -324,7 +324,7 @@ else:
 if selected:
     multipliers = {}
     for recipe in selected:
-        multipliers[recipe] = st.slider(f"{recipe} - {'份量倍率' if lang == '中文' else 'Multiplier'}", 1, 10, 1, key=recipe)
+        multipliers[recipe] = st.slider(f"{recipe} - {'份量倍率' if lang == '中文' else 'Multiplier'}", 0.0, 10.0, 1.0, step=0.25, key=recipe)
     selected_ids = filtered_df[filtered_df["RecipeDisplay"].isin(selected)]["RecipeID"].unique()
     for recipe in selected:
         rec_df = filtered_df[filtered_df["RecipeDisplay"] == recipe].copy()
