@@ -136,7 +136,7 @@ lang = st.radio("選擇語言 / Choose Language", ["中文", "English"])
 
 # Visit counter logic with date tracking
 visit_file = Path(__file__).parent / 'visit_history.json'
-current_date = datetime.now().strftime("%Y-%m-%d")  # e.g., "2025-06-03"
+current_date = datetime.now().strftime("%Y-%m-%d")  # e.g., "2025-06-04"
 
 # Initialize or load visit history
 if visit_file.exists():
@@ -164,11 +164,22 @@ else:
     st.markdown(f"**Today's Visits: {today_visits} | Total Visits: {total_visits}**")
 
 # Title after language selection
-st.title("Flavor Engine🍔🛠️🎨" if lang == "中文" else "Flavor Engine🍔🛠️🎨")
+st.title("🧑‍🍳🛠️ Flavor Engine " if lang == "中文" else "🧑‍🍳🛠️ Flavor Engine")
 
 # Utility function for formatting quantities
 def format_quantity(val):
     return str(int(val)) if float(val).is_integer() else f"{val:.1f}"
+
+# Function to snap multiplier to allowed values
+def snap_multiplier(value):
+    if value == 0:
+        return 0.0
+    elif value < 1:
+        # Snap to nearest 0.25 increment (0.25, 0.5, 0.75)
+        return round(value * 4) / 4
+    else:
+        # Snap to nearest integer (1, 2, ..., 10)
+        return round(value)
 
 # Function to resize image while maintaining aspect ratio
 def resize_image_with_aspect_ratio(image, max_width=500, max_height=700):  # Increased dimensions
@@ -205,6 +216,9 @@ def load_data():
         .merge(recipes, on="RecipeID", how="left")
         .merge(ingredient_dict, on="Ingredient", how="left")
     )
+    # Clean up recipe names (remove extra **)
+    merged["RecipeName"] = merged["RecipeName"].str.replace(r'\*\*', '', regex=True)
+    merged["RecipeName_zh"] = merged["RecipeName_zh"].str.replace(r'\*\*', '', regex=True)
     return merged, recipes, steps, tools
 
 df, recipes_df, steps_df, tools_df = load_data()
@@ -324,7 +338,27 @@ else:
 if selected:
     multipliers = {}
     for recipe in selected:
-        multipliers[recipe] = st.slider(f"{recipe} - {'份量倍率' if lang == '中文' else 'Multiplier'}", 0.0, 10.0, 1.0, step=0.25, key=recipe)
+        # Get the portion for this recipe
+        rec_df = filtered_df[filtered_df["RecipeDisplay"] == recipe].copy()
+        base_portion = rec_df.iloc[0]["Portion"]
+        # Ensure multiplier is a float, initialize if not set
+        if f"multiplier_{recipe}" not in st.session_state:
+            st.session_state[f"multiplier_{recipe}"] = 1.0
+        # Ensure the stored value is a float, not a list
+        if isinstance(st.session_state[f"multiplier_{recipe}"], list):
+            st.session_state[f"multiplier_{recipe}"] = st.session_state[f"multiplier_{recipe}"][0] if st.session_state[f"multiplier_{recipe}"] else 1.0
+        # Use a single slider with fine granularity and snap to allowed values
+        raw_mult = st.slider(
+            f"{recipe} - {'份量倍率' if lang == '中文' else 'Multiplier'}",
+            min_value=0.0, max_value=10.0, value=float(st.session_state[f"multiplier_{recipe}"]), step=0.01,
+            key=f"slider_{recipe}"
+        )
+        # Snap the raw value to allowed increments
+        mult = snap_multiplier(raw_mult)
+        st.session_state[f"multiplier_{recipe}"] = float(mult)  # Ensure stored value is a float
+        st.markdown(f"**{recipe} - {'單位份數' if lang == '中文' else 'Base Portion'}: {base_portion} - {'份數' if lang == '中文' else 'Portion'}: {base_portion} x {mult}**")
+        multipliers[recipe] = mult
+
     selected_ids = filtered_df[filtered_df["RecipeDisplay"].isin(selected)]["RecipeID"].unique()
     for recipe in selected:
         rec_df = filtered_df[filtered_df["RecipeDisplay"] == recipe].copy()
@@ -373,7 +407,7 @@ if selected:
         recipe_steps = steps_df[steps_df["RecipeID"] == recipe_id]
         total_recipe_time = recipe_steps[recipe_steps["Parallel"] == False]["CycleTime"].sum() if 'Parallel' in recipe_steps.columns and 'CycleTime' in recipe_steps.columns else 0
         if lang == "中文":
-            st.markdown(f"### 🍽️ {recipe} - 👥 分量：{portion}")
+            st.markdown(f"### 🍽️ {recipe} - 👥 份量：{portion}")
             st.markdown(f"🍳 做法：{info['Method']}")
             st.markdown(f"⏱️ 預估時間：{total_recipe_time} 分鐘")
         else:
@@ -389,9 +423,9 @@ if selected:
                 tool_display = recipe_tools[["ToolName_zh"]]
                 tool_display.columns = ["工具"]
                 if "Optional" in recipe_tools.columns:
-                    tool_display["選用"] = recipe_tools["Optional"].apply(lambda x: "✓" if x else "")
+                    tool_display["非必要"] = recipe_tools["Optional"].apply(lambda x: "✓" if x else "")
                 else:
-                    tool_display["選用"] = ""
+                    tool_display["非必要非必要"] = ""
             else:
                 tool_display = recipe_tools[["ToolName"]]
                 tool_display.columns = ["Tool"]
@@ -411,9 +445,9 @@ if selected:
                     .sum().mul(mult).reset_index()
                 )
                 display["數量"] = display["Amount"].apply(format_quantity)
-                display["選用"] = display["Optional"].apply(lambda x: "✓" if x else "")
-                display = display[["食材", "數量", "Unit", "選用"]]
-                display.columns = ["食材", "數量", "單位", "選用"]
+                display["非必要"] = display["Optional"].apply(lambda x: "✓" if x else "")
+                display = display[["食材", "數量", "Unit", "非必要"]]
+                display.columns = ["食材", "數量", "單位", "非必要"]
             else:
                 display = (
                     comp_df.groupby(["Ingredient", "Unit", "Optional"])["Amount"]
@@ -467,10 +501,10 @@ if selected:
         all_df["食材"] = all_df["Ingredient_zh"]
         summary = all_df.groupby(["食材", "Unit", "Optional"])["TotalAmount"].sum().reset_index()
         summary["數量"] = summary["TotalAmount"].apply(format_quantity)
-        summary["選用"] = summary["Optional"].apply(lambda x: "✓" if x else "")
-        summary = summary[["食材", "數量", "Unit", "選用"]]
-        summary.columns = ["食材", "數量", "單位", "選用"]
-        ingredient_lines = [f"{row['食材']}: {row['數量']}{row['單位']}" + (" (選用)" if row['選用'] else "") for _, row in summary.iterrows()]
+        summary["非必要"] = summary["Optional"].apply(lambda x: "✓" if x else "")
+        summary = summary[["食材", "數量", "Unit", "非必要"]]
+        summary.columns = ["食材", "數量", "單位", "非必要"]
+        ingredient_lines = [f"{row['食材']}: {row['數量']}{row['單位']}" + (" (非必要)" if row['非必要'] else "") for _, row in summary.iterrows()]
     else:
         summary = all_df.groupby(["Ingredient", "Unit", "Optional"])["TotalAmount"].sum().reset_index()
         summary["Quantity"] = summary["TotalAmount"].apply(format_quantity)
@@ -483,10 +517,10 @@ if selected:
         if lang == "中文":
             tool_summary = all_tools.groupby(["ToolName_zh", "Optional"]).size().reset_index(name="Count")
             if "Optional" in all_tools.columns:
-                tool_summary["選用"] = tool_summary["Optional"].apply(lambda x: "✓" if x else "")
+                tool_summary["非必要"] = tool_summary["Optional"].apply(lambda x: "✓" if x else "")
             else:
-                tool_summary["選用"] = ""
-            tool_lines = [f"{row['ToolName_zh']}" + (" (選用)" if row['選用'] else "") for _, row in tool_summary.iterrows()]
+                tool_summary["非必要"] = ""
+            tool_lines = [f"{row['ToolName_zh']}" + (" (非必要)" if row['非必要'] else "") for _, row in tool_summary.iterrows()]
         else:
             tool_summary = all_tools.groupby(["ToolName", "Optional"]).size().reset_index(name="Count")
             if "Optional" in all_tools.columns:
