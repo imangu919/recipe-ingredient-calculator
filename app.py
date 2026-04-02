@@ -247,12 +247,8 @@ def format_quantity(val):
     return str(int(val)) if float(val).is_integer() else f"{val:.1f}"
 
 def snap_multiplier(value):
-    if value == 0:
-        return 0.0
-    elif value < 1:
-        return round(value * 4) / 4
-    else:
-        return round(value)
+    # 以 0.5 為單位：0, 0.5, 1, 1.5, 2, ...
+    return round(value * 2) / 2
 
 def resize_image_with_aspect_ratio(image, max_width=500, max_height=700):
     w, h = image.size
@@ -425,7 +421,7 @@ if selected:
         raw_mult = st.slider(
             f"{recipe} - {T['multiplier_label']}",
             min_value=0.0, max_value=10.0,
-            value=float(st.session_state[key]), step=0.01,
+            value=float(st.session_state[key]), step=0.5,
             key=f"slider_{recipe}"
         )
         mult = snap_multiplier(raw_mult)
