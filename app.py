@@ -1,6 +1,9 @@
 import streamlit as st
 from pathlib import Path
 import pandas as pd
+import requests
+from io import BytesIO
+from PIL import Image
 import re
 import random
 import json
@@ -247,6 +250,24 @@ def snap_multiplier(value):
     # 以 0.5 為單位：0, 0.5, 1, 1.5, 2, ...
     return round(value * 2) / 2
 
+def resize_image_with_aspect_ratio(image, max_width=500, max_height=700):
+    w, h = image.size
+    ratio = w / h
+    if w > max_width:
+        w, h = max_width, int(max_width / ratio)
+    if h > max_height:
+        h, w = max_height, int(max_height * ratio)
+    return image.resize((w, h), Image.Resampling.LANCZOS)
+
+@st.cache_data(show_spinner=False)
+def fetch_image_bytes(url: str) -> bytes:
+    """遠端圖片快取，避免每次 rerender 重複下載。"""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://imgur.com/"
+    }
+    return requests.get(url, headers=headers).content
+
 # ── 資料載入 ─────────────────────────────────────────────────────────────────
 @st.cache_data
 def load_data():
@@ -422,20 +443,39 @@ if selected:
         # ── 圖片 ──
         if isinstance(image_url, str):
             if image_url.startswith("http"):
-                # 直接傳 URL 給瀏覽器渲染，不經過 Python requests
-                # 避免網路下載觸發 rerun 造成畫面閃爍
-                st.markdown(
-                    f'<img src="{image_url}" style="max-width:500px;max-height:700px;object-fit:contain;">',
-                    unsafe_allow_html=True
-                )
+                display_url = image_url
+                if "/a/" in image_url or "/gallery/" in image_url:
+                    try:
+                        html = requests.get(image_url).text
+                        m = re.search(r'<meta property="og:image" content="([^"]+)"', html)
+                        if m:
+                            display_url = m.group(1)
+                        else:
+                            m2 = re.search(r'<link rel="image_src" href="([^"]+)"', html)
+                            if m2:
+                                display_url = m2.group(1)
+                    except Exception:
+                        pass
+                try:
+                    # ★ 改善：圖片快取，避免每次互動重新下載
+                    img_bytes = fetch_image_bytes(display_url)
+                    img = Image.open(BytesIO(img_bytes))
+                    img = resize_image_with_aspect_ratio(img)
+                    st.image(img)
+                except Exception as e:
+                    st.error(f"{T['img_load_err']}{e}")
+                    st.markdown(
+                        f'<img src="{display_url}" style="max-width:500px;max-height:700px;object-fit:contain;">',
+                        unsafe_allow_html=True
+                    )
             else:
                 image_path = Path(__file__).parent / image_url
                 if image_path.exists():
-                    # 直接傳路徑字串給 st.image，不經過 PIL
-                    # 避免 encode/decode 觸發 rerun 造成畫面閃爍
-                    st.image(str(image_path), width=500)
+                    img = Image.open(image_path)
+                    img = resize_image_with_aspect_ratio(img)
+                    st.image(img)
                 else:
-                    st.info(T["no_image"])
+                    st.error(f"{T['local_img_err']}{image_path}")
         else:
             st.info(T["no_image"])
 
