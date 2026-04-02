@@ -2,7 +2,6 @@ import streamlit as st
 from pathlib import Path
 import pandas as pd
 import re
-from PIL import Image
 import random
 import json
 from datetime import datetime
@@ -248,15 +247,6 @@ def snap_multiplier(value):
     # 以 0.5 為單位：0, 0.5, 1, 1.5, 2, ...
     return round(value * 2) / 2
 
-def resize_image_with_aspect_ratio(image, max_width=500, max_height=700):
-    w, h = image.size
-    ratio = w / h
-    if w > max_width:
-        w, h = max_width, int(max_width / ratio)
-    if h > max_height:
-        h, w = max_height, int(max_height * ratio)
-    return image.resize((w, h), Image.Resampling.LANCZOS)
-
 # ── 資料載入 ─────────────────────────────────────────────────────────────────
 @st.cache_data
 def load_data():
@@ -441,9 +431,9 @@ if selected:
             else:
                 image_path = Path(__file__).parent / image_url
                 if image_path.exists():
-                    img = Image.open(image_path)
-                    img = resize_image_with_aspect_ratio(img)
-                    st.image(img)
+                    # 直接傳路徑字串給 st.image，不經過 PIL
+                    # 避免 encode/decode 觸發 rerun 造成畫面閃爍
+                    st.image(str(image_path), width=500)
                 else:
                     st.info(T["no_image"])
         else:
