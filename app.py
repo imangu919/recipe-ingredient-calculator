@@ -277,17 +277,24 @@ for key, default in [('selected_category', 'All'),
 
 # ── filtered_df 在 expander 外定義，確保採購清單也能使用 ─────────────────────
 # ★ Bug 修正：原本定義在 expander 內，scope 不一致
-filtered_df = df.copy()
 cat_key    = 'Category_zh'    if lang == "中文" else 'Category'
 subcat_key = 'SubCategory_zh' if lang == "中文" else 'SubCategory'
+
+# recipe_options：從 recipes_df 產生，乾淨的 list，不受 merge 影響
+filtered_recipes = recipes_df.copy()
 if st.session_state.selected_category != 'All':
-    filtered_df = filtered_df[filtered_df[cat_key] == st.session_state.selected_category]
+    filtered_recipes = filtered_recipes[filtered_recipes[cat_key] == st.session_state.selected_category]
 if st.session_state.selected_subcategory != 'All':
-    filtered_df = filtered_df[filtered_df[subcat_key] == st.session_state.selected_subcategory]
+    filtered_recipes = filtered_recipes[filtered_recipes[subcat_key] == st.session_state.selected_subcategory]
+display_col = 'RecipeName_zh' if lang == "中文" else 'RecipeName'
+recipe_options = list(filtered_recipes[display_col].str.replace(r'\*\*', '', regex=True).unique())
+
+# filtered_df：供後續 BoM/步驟查詢用，依 recipe_options 篩選
+filtered_df = df.copy()
 filtered_df["RecipeDisplay"] = (
     filtered_df["RecipeName_zh"] if lang == "中文" else filtered_df["RecipeName"]
 )
-recipe_options = filtered_df["RecipeDisplay"].unique()
+filtered_df = filtered_df[filtered_df["RecipeDisplay"].isin(recipe_options)]
 
 # ── 驚喜挑選 ─────────────────────────────────────────────────────────────────
 with st.expander(T["surprise_pick"], expanded=False):
