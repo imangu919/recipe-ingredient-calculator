@@ -1,6 +1,9 @@
 import streamlit as st
 from pathlib import Path
 import pandas as pd
+import requests
+from io import BytesIO
+from PIL import Image
 import re
 import random
 import json
@@ -243,6 +246,28 @@ st.title("🧑‍🍳🛠️ Flavor Engine")
 def format_quantity(val):
     return str(int(val)) if float(val).is_integer() else f"{val:.1f}"
 
+def snap_multiplier(value):
+    # 以 0.5 為單位：0, 0.5, 1, 1.5, 2, ...
+    return round(value * 2) / 2
+
+def resize_image_with_aspect_ratio(image, max_width=500, max_height=700):
+    w, h = image.size
+    ratio = w / h
+    if w > max_width:
+        w, h = max_width, int(max_width / ratio)
+    if h > max_height:
+        h, w = max_height, int(max_height * ratio)
+    return image.resize((w, h), Image.Resampling.LANCZOS)
+
+@st.cache_data(show_spinner=False)
+def fetch_image_bytes(url: str) -> bytes:
+    """遠端圖片快取，避免每次 rerender 重複下載。"""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://imgur.com/"
+    }
+    return requests.get(url, headers=headers).content
+
 # ── 資料載入 ─────────────────────────────────────────────────────────────────
 @st.cache_data
 def load_data():
@@ -277,24 +302,17 @@ for key, default in [('selected_category', 'All'),
 
 # ── filtered_df 在 expander 外定義，確保採購清單也能使用 ─────────────────────
 # ★ Bug 修正：原本定義在 expander 內，scope 不一致
+filtered_df = df.copy()
 cat_key    = 'Category_zh'    if lang == "中文" else 'Category'
 subcat_key = 'SubCategory_zh' if lang == "中文" else 'SubCategory'
-
-# recipe_options：從 recipes_df 產生，乾淨的 list，不受 merge 影響
-filtered_recipes = recipes_df.copy()
 if st.session_state.selected_category != 'All':
-    filtered_recipes = filtered_recipes[filtered_recipes[cat_key] == st.session_state.selected_category]
+    filtered_df = filtered_df[filtered_df[cat_key] == st.session_state.selected_category]
 if st.session_state.selected_subcategory != 'All':
-    filtered_recipes = filtered_recipes[filtered_recipes[subcat_key] == st.session_state.selected_subcategory]
-display_col = 'RecipeName_zh' if lang == "中文" else 'RecipeName'
-recipe_options = list(filtered_recipes[display_col].str.replace(r'\*\*', '', regex=True).unique())
-
-# filtered_df：供後續 BoM/步驟查詢用，依 recipe_options 篩選
-filtered_df = df.copy()
+    filtered_df = filtered_df[filtered_df[subcat_key] == st.session_state.selected_subcategory]
 filtered_df["RecipeDisplay"] = (
     filtered_df["RecipeName_zh"] if lang == "中文" else filtered_df["RecipeName"]
 )
-filtered_df = filtered_df[filtered_df["RecipeDisplay"].isin(recipe_options)]
+recipe_options = filtered_df["RecipeDisplay"].unique()
 
 # ── 驚喜挑選 ─────────────────────────────────────────────────────────────────
 with st.expander(T["surprise_pick"], expanded=False):
@@ -394,14 +412,20 @@ if selected:
     for recipe in selected:
         rec_df = filtered_df[filtered_df["RecipeDisplay"] == recipe].copy()
         base_portion = rec_df.iloc[0]["Portion"]
-        recipe_id_for_key = rec_df["RecipeID"].iloc[0]
+        key = f"multiplier_{recipe}"
+        if key not in st.session_state:
+            st.session_state[key] = 1.0
+        if isinstance(st.session_state[key], list):
+            st.session_state[key] = st.session_state[key][0] if st.session_state[key] else 1.0
 
-        mult = st.slider(
+        raw_mult = st.slider(
             f"{recipe} - {T['multiplier_label']}",
             min_value=0.0, max_value=10.0,
-            value=1.0, step=0.5,
-            key=f"slider_{recipe_id_for_key}"
+            value=float(st.session_state[key]), step=0.5,
+            key=f"slider_{recipe}"
         )
+        mult = snap_multiplier(raw_mult)
+        st.session_state[key] = float(mult)
         st.markdown(
             f"**{recipe} - {T['base_portion']}: {base_portion} - "
             f"{T['portion_label']}: {base_portion} x {mult}**"
@@ -419,20 +443,39 @@ if selected:
         # ── 圖片 ──
         if isinstance(image_url, str):
             if image_url.startswith("http"):
-                # 直接傳 URL 給瀏覽器渲染，不經過 Python requests
-                # 避免網路下載觸發 rerun 造成畫面閃爍
-                st.markdown(
-                    f'<img src="{image_url}" style="max-width:500px;max-height:700px;object-fit:contain;">',
-                    unsafe_allow_html=True
-                )
+                display_url = image_url
+                if "/a/" in image_url or "/gallery/" in image_url:
+                    try:
+                        html = requests.get(image_url).text
+                        m = re.search(r'<meta property="og:image" content="([^"]+)"', html)
+                        if m:
+                            display_url = m.group(1)
+                        else:
+                            m2 = re.search(r'<link rel="image_src" href="([^"]+)"', html)
+                            if m2:
+                                display_url = m2.group(1)
+                    except Exception:
+                        pass
+                try:
+                    # ★ 改善：圖片快取，避免每次互動重新下載
+                    img_bytes = fetch_image_bytes(display_url)
+                    img = Image.open(BytesIO(img_bytes))
+                    img = resize_image_with_aspect_ratio(img)
+                    st.image(img)
+                except Exception as e:
+                    st.error(f"{T['img_load_err']}{e}")
+                    st.markdown(
+                        f'<img src="{display_url}" style="max-width:500px;max-height:700px;object-fit:contain;">',
+                        unsafe_allow_html=True
+                    )
             else:
                 image_path = Path(__file__).parent / image_url
                 if image_path.exists():
-                    # 直接傳路徑字串給 st.image，不經過 PIL
-                    # 避免 encode/decode 觸發 rerun 造成畫面閃爍
-                    st.image(str(image_path), width=500)
+                    img = Image.open(image_path)
+                    img = resize_image_with_aspect_ratio(img)
+                    st.image(img)
                 else:
-                    st.info(T["no_image"])
+                    st.error(f"{T['local_img_err']}{image_path}")
         else:
             st.info(T["no_image"])
 
