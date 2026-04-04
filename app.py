@@ -243,10 +243,6 @@ st.title("🧑‍🍳🛠️ Flavor Engine")
 def format_quantity(val):
     return str(int(val)) if float(val).is_integer() else f"{val:.1f}"
 
-def snap_multiplier(value):
-    # 以 0.5 為單位：0, 0.5, 1, 1.5, 2, ...
-    return round(value * 2) / 2
-
 # ── 資料載入 ─────────────────────────────────────────────────────────────────
 @st.cache_data
 def load_data():
@@ -391,20 +387,14 @@ if selected:
     for recipe in selected:
         rec_df = filtered_df[filtered_df["RecipeDisplay"] == recipe].copy()
         base_portion = rec_df.iloc[0]["Portion"]
-        key = f"multiplier_{recipe}"
-        if key not in st.session_state:
-            st.session_state[key] = 1.0
-        if isinstance(st.session_state[key], list):
-            st.session_state[key] = st.session_state[key][0] if st.session_state[key] else 1.0
+        recipe_id_for_key = rec_df["RecipeID"].iloc[0]
 
-        raw_mult = st.slider(
+        mult = st.slider(
             f"{recipe} - {T['multiplier_label']}",
             min_value=0.0, max_value=10.0,
-            value=float(st.session_state[key]), step=0.5,
-            key=f"slider_{recipe}"
+            value=1.0, step=0.5,
+            key=f"slider_{recipe_id_for_key}"
         )
-        mult = snap_multiplier(raw_mult)
-        st.session_state[key] = float(mult)
         st.markdown(
             f"**{recipe} - {T['base_portion']}: {base_portion} - "
             f"{T['portion_label']}: {base_portion} x {mult}**"
